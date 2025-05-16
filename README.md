@@ -1,0 +1,2 @@
+# vSphereSnapshotManager
+vSphere snapshot manager
