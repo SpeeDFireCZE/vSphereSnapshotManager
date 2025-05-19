@@ -1,5 +1,5 @@
-﻿#--------------------------------------Sdílené proměnné-----------------------------------------------#
-    $server= "*****"
+#--------------------------------------Sdílené proměnné-----------------------------------------------#
+    $server= "******"
 #---------------------------------kontrola dostupnosti--------------------------------------#
 $vcaccess = ping $server -n 1
 if($vcaccess -match "Received = 1"){
@@ -107,10 +107,10 @@ if($Buttonlogin.Text -ne "VM login"){
         $snaptime= Get-Snapshot -VM $line | select-object -expand created
         foreach ($snap in $snaptime){
         $finishtime= $snap.AddMinutes(5).ToString("dd/MM/yyyy HH:mm:ss")
-        #$finishtimedatetime= [datetime]::ParseExact("$finishtime", "dd/MM/yyyy h:mm:ss", $null)
+        $finishtimedatetime= [datetime]::ParseExact("$finishtime", "dd/MM/yyyy h:mm:ss", $null)
         $starttime= $snap.AddMinutes(-59).ToString("dd/MM/yyyy HH:mm:ss")
         $starttimedatetime= [datetime]::ParseExact("$starttime", "dd/MM/yyyy h:mm:ss", $null)
-        $exit= Get-VIEvent -Entity $line -Types Info -start $starttimedatetime -finish $finishtime| Where-Object {$_.FullFormattedMessage -imatch 'Task: Create virtual machine snapshot'} | Select-Object -expand UserName | Out-String
+        $exit= Get-VIEvent -Entity $line -Types Info -start $starttimedatetime -finish $finishtimedatetime| Where-Object {$_.FullFormattedMessage -imatch 'Task: Create virtual machine snapshot'} | Select-Object -expand UserName | Out-String
         $vysledek = ($exit -split "`n")
     }
         foreach ($snapname in $snapshot){
