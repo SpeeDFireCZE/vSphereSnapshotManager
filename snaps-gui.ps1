@@ -7,7 +7,7 @@ $Icon = Join-Path $env:TEMP "tempicon.ico"
 [IO.File]::WriteAllBytes($Icon, [Convert]::FromBase64String($iconBase64))
 
 #--------------------------------------Sdílené proměnné-----------------------------------------------#
-    $server= "******"
+    $server= "praha-vc.sazka.cz"
 #---------------------------------kontrola dostupnosti--------------------------------------#
 $vcaccess = ping $server -n 1
 if($vcaccess -match "Received = 1"){
@@ -111,12 +111,14 @@ Disconnect-VIServer -Confirm:$False -Force
 #==============================================================================================================================================================================#
 #==============================================================================================================================================================================#
 
-#=========================================================================Funkce na $infotextBoxmenu1 a $findtextboxmenu1========================================================#
+#=========================================================================Funkce na $infotextBoxmenu1 a $deletetextboxmenu1========================================================#
 function get-textinfo{
     $infotextBoxmenu1.Text=""
-    $findtextboxmenu1.Items.Clear()
-    $findtextboxmenu1.Text=""
+    $deletetextboxmenu1.Items.Clear()
+    $deletetextboxmenu1.Text=""
 if($Buttonlogin.Text -ne "VM login"){
+    $empty= get-vm | get-snapshot | select-object -expand name
+    if ($null -ne $empty){
     foreach ($line in (Get-View -ViewType VirtualMachine -Property Name,Snapshot -Filter @{Snapshot = ''} | select-object -expand Name)){
         $snapshot = Get-Snapshot -VM $line
         $snaptime= Get-Snapshot -VM $line | select-object -expand created
@@ -131,27 +133,29 @@ if($Buttonlogin.Text -ne "VM login"){
         foreach ($snapname in $snapshot){
         if($null -ne $snapshot){    
         $infotextBoxmenu1.AppendText( "'VM: "+ "||$line||" + " Snapshot: '" + "||$snapname||" + "' created on: " + $snapname.Created.DateTime + " by " + $vysledek[0] + "`r`n")
-        $findtextboxmenu1.Items.Add("'VM: "+ "||$line||" + " Snapshot: '" + "||$snapname||," + "' created on: " + $snapname.Created.DateTime + " by " + $vysledek[0] + "`r`n")
+        $deletetextboxmenu1.Items.Add("'VM: "+ "||$line||" + " Snapshot: '" + "||$snapname||," + "' created on: " + $snapname.Created.DateTime + " by " + $vysledek[0] + "`r`n")
         }
         
         else {
         }
         }
-    
+    }
+    }
+    else{
+        (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Snapshoty nejsou",0,"Chyba",64)
     }
     }
     else{
         (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován AD login",0,"Chyba",64)
     }
 
-    $findtextboxmenu1.AutoCompleteSource = 'ListItems'
-    $findtextboxmenu1.AutoCompleteMode = 'Append'
-
+    $deletetextboxmenu1.AutoCompleteSource = 'ListItems'
+    $deletetextboxmenu1.AutoCompleteMode = 'Append'
 
 }
 
 
-#=========================================================================zjištění snapshotů===========================================================================================#
+#=========================================================================zjištění snapshotů==========================================================================================#
 $infotextBoxmenu1 = New-Object System.Windows.Forms.TextBox
 $infotextBoxmenu1.Multiline=$true 
 $infotextBoxmenu1.ReadOnly=$true
@@ -189,15 +193,15 @@ get-textinfo
 
 
 
-$findtextboxmenu1 = New-Object System.Windows.Forms.ComboBox
-$findtextboxmenu1.Location = New-Object System.Drawing.Point(5,110)
-$findtextboxmenu1.Size = New-Object System.Drawing.Size(800,20)
+$deletetextboxmenu1 = New-Object System.Windows.Forms.ComboBox
+$deletetextboxmenu1.Location = New-Object System.Drawing.Point(5,110)
+$deletetextboxmenu1.Size = New-Object System.Drawing.Size(800,20)
 
-$main_form.Controls.Add($findtextboxmenu1)
+$main_form.Controls.Add($deletetextboxmenu1)
 
-$findtextboxmenu1.Add_KeyDown({
+$deletetextboxmenu1.Add_KeyDown({
     if (($_.Control) -and ($_.KeyCode -eq 'A')) {
-       $findtextboxmenu1.SelectAll()
+       $deletetextboxmenu1.SelectAll()
     }
   })
 
@@ -215,16 +219,93 @@ $main_form.Controls.Add($button4menu1)
 $button4menu1.Add_Click(
 
 {   
-    $delsnapshot= $findtextboxmenu1.Text.split("||")
+    if($Buttonlogin.Text -ne "VM login"){
+        if ("" -ne $deletetextboxmenu1.Text){
+
+    $delsnapshot= $deletetextboxmenu1.Text.split("||")
     $delname= $delsnapshot[6]
     $hostname= $delsnapshot[2]
-    Get-Snapshot -VM $delsnapshot[2] | Where-Object { $_.Name -like $delsnapshot[6] } | remove-snapshot -Confirm:$false
-            (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Snapshot $delname na $hostname byl smazát",0,"Chyba",64)
+
+    # Vytvoř GUI okno
+$progres_form = New-Object System.Windows.Forms.Form
+$progres_form.Text = "Mazání snapshotu"
+$progres_form.Size = New-Object System.Drawing.Size(400,150)
+$progres_form.StartPosition = "CenterScreen"
+$progres_form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($Icon)
+$progres_form.Topmost = $true
+$progres_form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($Icon)
+
+# Label
+$label = New-Object System.Windows.Forms.Label
+$label.Text = "Probíhá mazání snapshotu..."
+$label.AutoSize = $true
+$label.Location = New-Object System.Drawing.Point(20,20)
+$progres_form.Controls.Add($label)
+
+# ProgressBar
+$progressBar = New-Object System.Windows.Forms.ProgressBar
+$progressBar.Location = New-Object System.Drawing.Point(20,50)
+$progressBar.Size = New-Object System.Drawing.Size(340,20)
+$progressBar.Minimum = 0
+$progressBar.Maximum = 100
+$progres_form.Controls.Add($progressBar)
+
+# Zobraz okno asynchronně
+$progres_form.Show()
+
+
+    if ($null -ne $hostname) {
+        $task = Get-Snapshot -VM $delsnapshot[2] | Where-Object { $_.Name -like $delsnapshot[6] } | remove-snapshot -Confirm:$false -RunAsync
+
+    # Čekej, až se operace dokončí, s průběhem
+    do {
+        $taskInfo = Get-Task | Where-Object { $_.Id -eq $task.Id }
+
+        $percent = if ($taskInfo.PercentComplete -ne $null) {
+            $taskInfo.PercentComplete
+        } else {
+            0
+        }
+
+        # Aktualizuj GUI prvky
+        $progres_form.Invoke([Action]{
+            $progressBar.Value = $percent
+            $label.Text = "Mazání snapshotu: $percent%"
+        })
+
+        Start-Sleep -Seconds 2
+    } while ($taskInfo.State -eq "Running")
+
+    $progres_form.Invoke([Action]{ $progressBar.Value = 100 })
+
+    if ($taskInfo.State -eq "Success") {
+        $progres_form.Invoke([Action]{ $label.Text = "Mazání dokončeno." })
+    } else {
+        $progres_form.Invoke([Action]{ $label.Text = "Chyba: $($taskInfo.Error.Message)" })
+    }
+
+    Start-Sleep -Seconds 3
+    $progres_form.Close()
+} else {
+    [System.Windows.Forms.MessageBox]::Show("Snapshot '$snapshotName' nebyl nalezen.","Chyba")
+    $progres_form.Close()
+}
+
+    (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Snapshot $delname na $hostname byl smazát",0,"Chyba",64)
 
     get-textinfo
-
-            
+ }   
+ else{
+    (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("vyber snapshot",0,"Chyba",64)
+ }        
 }
+else {
+   (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován AD login",0,"Chyba",64) 
+}
+} 
+
+
+
 )
     $main_form.Toplevel = $true
     $main_form.ShowDialog()
