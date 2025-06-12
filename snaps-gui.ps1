@@ -7,7 +7,7 @@ $Icon = Join-Path $env:TEMP "tempicon.ico"
 [IO.File]::WriteAllBytes($Icon, [Convert]::FromBase64String($iconBase64))
 
 #--------------------------------------Sdílené proměnné-----------------------------------------------#
-    $server= "praha-vc.sazka.cz"
+    $server= "******"
 #---------------------------------kontrola dostupnosti--------------------------------------#
 $vcaccess = ping $server -n 1
 if($vcaccess -match "Received = 1"){
