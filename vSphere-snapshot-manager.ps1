@@ -7,7 +7,7 @@ $Icon = Join-Path $env:TEMP "tempicon.ico"
 [IO.File]::WriteAllBytes($Icon, [Convert]::FromBase64String($iconBase64))
 
 #--------------------------------------Sdílené proměnné-----------------------------------------------#
-    $server= "******"
+    $server= "*******"
 #---------------------------------kontrola dostupnosti--------------------------------------#
 $vcaccess = ping $server -n 1
 if($vcaccess -match "Received = 1"){
@@ -111,11 +111,10 @@ Disconnect-VIServer -Confirm:$False -Force
 #==============================================================================================================================================================================#
 #==============================================================================================================================================================================#
 
-#=========================================================================Funkce na $infotextBoxmenu1 a $deletetextboxmenu1========================================================#
+#=========================================================================Funkce na $infotextBoxmenu1 ========================================================#
 function get-textinfo{
+    $infotextBoxmenu1.Items.Clear()
     $infotextBoxmenu1.Text=""
-    $deletetextboxmenu1.Items.Clear()
-    $deletetextboxmenu1.Text=""
 if($Buttonlogin.Text -ne "VM login"){
     $empty= get-vm | get-snapshot | select-object -expand name
     if ($null -ne $empty){
@@ -132,8 +131,7 @@ if($Buttonlogin.Text -ne "VM login"){
     }
         foreach ($snapname in $snapshot){
         if($null -ne $snapshot){    
-        $infotextBoxmenu1.AppendText( "'VM: "+ "||$line||" + " Snapshot: '" + "||$snapname||" + "' created on: " + $snapname.Created.DateTime + " by " + $vysledek[0] + "`r`n")
-        $deletetextboxmenu1.Items.Add("'VM: "+ "||$line||" + " Snapshot: '" + "||$snapname||," + "' created on: " + $snapname.Created.DateTime + " by " + $vysledek[0] + "`r`n")
+        $infotextBoxmenu1.Items.Add( "'VM: "+ "||$line||" + " Snapshot: '" + "||$snapname||" + "' created on: " + $snapname.Created.DateTime + " by " + $vysledek[0] + "`r`n")
         }
         
         else {
@@ -149,18 +147,14 @@ if($Buttonlogin.Text -ne "VM login"){
         (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován AD login",0,"Chyba",64)
     }
 
-    $deletetextboxmenu1.AutoCompleteSource = 'ListItems'
-    $deletetextboxmenu1.AutoCompleteMode = 'Append'
 
 }
 
 
 #=========================================================================zjištění snapshotů==========================================================================================#
-$infotextBoxmenu1 = New-Object System.Windows.Forms.TextBox
-$infotextBoxmenu1.Multiline=$true 
-$infotextBoxmenu1.ReadOnly=$true
-$infotextBoxmenu1.ScrollBars="vertical"
-$infotextBoxmenu1.Location = New-Object System.Drawing.Point(5,170)
+$infotextBoxmenu1 = New-Object System.Windows.Forms.ListBox
+$infotextBoxmenu1.SelectionMode = "MultiExtended"
+$infotextBoxmenu1.Location = New-Object System.Drawing.Point(5,70)
 $infotextBoxmenu1.Size = New-Object System.Drawing.Size(800,200)
 $main_form.Controls.Add($infotextBoxmenu1)
 
@@ -191,117 +185,122 @@ get-textinfo
 
 #=========================================================================delete-menu1===========================================================================================#
 
-
-
-$deletetextboxmenu1 = New-Object System.Windows.Forms.ComboBox
-$deletetextboxmenu1.Location = New-Object System.Drawing.Point(5,110)
-$deletetextboxmenu1.Size = New-Object System.Drawing.Size(800,20)
-
-$main_form.Controls.Add($deletetextboxmenu1)
-
-$deletetextboxmenu1.Add_KeyDown({
-    if (($_.Control) -and ($_.KeyCode -eq 'A')) {
-       $deletetextboxmenu1.SelectAll()
-    }
-  })
-
 $button4menu1 = New-Object System.Windows.Forms.Button
 $button4menu1.BackColor =”LightGray”
 $button4menu1.ForeColor = “black”
-$button4menu1.Location = New-Object System.Drawing.Size(310,135)
+$button4menu1.Location = New-Object System.Drawing.Size(310,285)
 
 $button4menu1.Size = New-Object System.Drawing.Size(160,23)
 
-$button4menu1.Text = "odstranit snapshot"
+$button4menu1.Text = "odstranit snapshoty"
 $button4menu1.Cursor="Hand"
 $main_form.Controls.Add($button4menu1)
 
-$button4menu1.Add_Click(
+$button4menu1.Add_Click({   
+        if ($Buttonlogin.Text -ne "VM login") {
+    if ($infotextBoxmenu1.SelectedItems.Count -gt 0) {
 
-{   
-    if($Buttonlogin.Text -ne "VM login"){
-        if ("" -ne $deletetextboxmenu1.Text){
+        $summary = @()  # Zde budeme ukládat výsledky každého snapshotu
 
-    $delsnapshot= $deletetextboxmenu1.Text.split("||")
-    $delname= $delsnapshot[6]
-    $hostname= $delsnapshot[2]
+        foreach ($selectedItem in $infotextBoxmenu1.SelectedItems) {
+            $delsnapshot = $selectedItem.ToString().Split("||")
+            $delname     = $delsnapshot[6]
+            $hostname    = $delsnapshot[2]
 
-    # Vytvoř GUI okno
-$progres_form = New-Object System.Windows.Forms.Form
-$progres_form.Text = "Mazání snapshotu"
-$progres_form.Size = New-Object System.Drawing.Size(400,150)
-$progres_form.StartPosition = "CenterScreen"
-$progres_form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($Icon)
-$progres_form.Topmost = $true
-$progres_form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($Icon)
-
-# Label
-$label = New-Object System.Windows.Forms.Label
-$label.Text = "Probíhá mazání snapshotu..."
-$label.AutoSize = $true
-$label.Location = New-Object System.Drawing.Point(20,20)
-$progres_form.Controls.Add($label)
-
-# ProgressBar
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point(20,50)
-$progressBar.Size = New-Object System.Drawing.Size(340,20)
-$progressBar.Minimum = 0
-$progressBar.Maximum = 100
-$progres_form.Controls.Add($progressBar)
-
-# Zobraz okno asynchronně
-$progres_form.Show()
-
-
-    if ($null -ne $hostname) {
-        $task = Get-Snapshot -VM $delsnapshot[2] | Where-Object { $_.Name -like $delsnapshot[6] } | remove-snapshot -Confirm:$false -RunAsync
-
-    # Čekej, až se operace dokončí, s průběhem
-    do {
-        $taskInfo = Get-Task | Where-Object { $_.Id -eq $task.Id }
-
-        $percent = if ($taskInfo.PercentComplete -ne $null) {
-            $taskInfo.PercentComplete
-        } else {
-            0
-        }
-
-        # Aktualizuj GUI prvky
-        $progres_form.Invoke([Action]{
-            $progressBar.Value = $percent
-            $label.Text = "Mazání snapshotu: $percent%"
+            # Vytvoř GUI okno pro mazání snapshotu
+            $progres_form = New-Object System.Windows.Forms.Form
+            $progres_form.Text = "Mazání snapshotu"
+            $progres_form.Size = New-Object System.Drawing.Size(400,150)
+            $progres_form.StartPosition = "CenterScreen"
+            $progres_form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($Icon)
+            $progres_form.TopMost = $true
+            $progres_form.FormBorderStyle = 'FixedDialog'  # NEBO 'Sizable', 'FixedSingle' apod.
+            $progres_form.ControlBox = $true               # povolí ovládání
+            $progres_form.MaximizeBox = $false
+            $progres_form.MinimizeBox = $true
+            $script:allowClose = $false
+            $progres_form.Add_FormClosing({
+            if (-not $script:allowClose) {
+            $_.Cancel = $true
+            }
         })
 
-        Start-Sleep -Seconds 2
-    } while ($taskInfo.State -eq "Running")
+            $label = New-Object System.Windows.Forms.Label
+            $label.Text = "Probíhá mazání snapshotu..."
+            $label.AutoSize = $true
+            $label.Location = New-Object System.Drawing.Point(20,20)
+            $progres_form.Controls.Add($label)
 
-    $progres_form.Invoke([Action]{ $progressBar.Value = 100 })
+            $progressBar = New-Object System.Windows.Forms.ProgressBar
+            $progressBar.Location = New-Object System.Drawing.Point(20,50)
+            $progressBar.Size = New-Object System.Drawing.Size(340,20)
+            $progressBar.Minimum = 0
+            $progressBar.Maximum = 100
+            $progres_form.Controls.Add($progressBar)
 
-    if ($taskInfo.State -eq "Success") {
-        $progres_form.Invoke([Action]{ $label.Text = "Mazání dokončeno." })
+            $progres_form.Show()
+
+            if ($null -ne $hostname -and $hostname -ne "") {
+                try {
+                    $task = Get-Snapshot -VM $hostname | Where-Object { $_.Name -like $delname } | Remove-Snapshot -Confirm:$false -RunAsync
+
+                    do {
+                        $taskInfo = Get-Task | Where-Object { $_.Id -eq $task.Id }
+                        $percent = if ($taskInfo.PercentComplete -ne $null) { $taskInfo.PercentComplete } else { 0 }
+
+                        $progres_form.Invoke([Action]{
+                            $progressBar.Value = $percent
+                            $label.Text = "Mazání snapshotu: $percent%"
+                        })
+
+                        Start-Sleep -Seconds 1
+                    } while ($taskInfo.State -eq "Running")
+
+                    $progres_form.Invoke([Action]{ $progressBar.Value = 100 })
+
+                    if ($taskInfo.State -eq "Success") {
+                        $progres_form.Invoke([Action]{ $label.Text = "Mazání dokončeno." })
+                        $summary += "✅ $delname na $hostname byl smazán"
+                    } else {
+                        $progres_form.Invoke([Action]{ $label.Text = "Chyba: $($taskInfo.Error.Message)" })
+                        $summary += "❌ Chyba u $delname na $hostname : $($taskInfo.Error.Message)"
+                    }
+
+                } catch {
+                    $progres_form.Invoke([Action]{ $label.Text = "Chyba: $_" })
+                    $summary += "❌ Výjimka u $delname na $hostname : $_"
+                }
+
+                Start-Sleep -Seconds 2
+                $script:allowClose = $true
+                $progres_form.Close()
+            
+            } else {
+                $summary += "⚠️ Hostname není definován u $delname."
+                $script:allowClose = $true
+                $progres_form.Close()
+                
+            }
+        }
+
+        # Zobraz souhrnný MessageBox
+        Add-Type -AssemblyName System.Windows.Forms
+        [System.Windows.Forms.MessageBox]::Show(($summary -join "`n"), "Výsledky mazání", 
+            [System.Windows.Forms.MessageBoxButtons]::OK, 
+            [System.Windows.Forms.MessageBoxIcon]::Information, 
+            [System.Windows.Forms.MessageBoxDefaultButton]::Button1, 
+            [System.Windows.Forms.MessageBoxOptions]::ServiceNotification)
+
+        get-textinfo  # Refresh seznamu
+
     } else {
-        $progres_form.Invoke([Action]{ $label.Text = "Chyba: $($taskInfo.Error.Message)" })
+        (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Vyber alespoň jeden snapshot.","Chyba",0,48)
     }
-
-    Start-Sleep -Seconds 3
-    $progres_form.Close()
 } else {
-    [System.Windows.Forms.MessageBox]::Show("Snapshot '$snapshotName' nebyl nalezen.","Chyba")
-    $progres_form.Close()
+    (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován AD login.","Chyba",0,48)
 }
 
-    (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Snapshot $delname na $hostname byl smazát",0,"Chyba",64)
 
-    get-textinfo
- }   
- else{
-    (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("vyber snapshot",0,"Chyba",64)
- }        
-}
-else {
-   (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován AD login",0,"Chyba",64) 
-}
 } 
 
 
