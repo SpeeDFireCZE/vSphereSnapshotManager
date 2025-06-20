@@ -213,17 +213,17 @@ $button4menu1.Add_Click({
             $progres_form.Size = New-Object System.Drawing.Size(400,150)
             $progres_form.StartPosition = "CenterScreen"
             $progres_form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($Icon)
-            $progres_form.TopMost = $true
+            $progres_form.Toplevel = $true
             $progres_form.FormBorderStyle = 'FixedDialog'  # NEBO 'Sizable', 'FixedSingle' apod.
-            $progres_form.ControlBox = $true               # povolí ovládání
-            $progres_form.MaximizeBox = $false
-            $progres_form.MinimizeBox = $true
-            $script:allowClose = $false
-            $progres_form.Add_FormClosing({
-            if (-not $script:allowClose) {
-            $_.Cancel = $true
-            }
-        })
+            $progres_form.ControlBox = $false               # povolí ovládání
+            #$progres_form.MaximizeBox = $false
+            #$progres_form.MinimizeBox = $true
+            #$script:allowClose = $false
+            #$progres_form.Add_FormClosing({
+            #if (-not $script:allowClose) {
+            #$_.Cancel = $true
+            #}
+        #})
 
             $label = New-Object System.Windows.Forms.Label
             $label.Text = "Probíhá mazání snapshotu..."
@@ -242,6 +242,20 @@ $button4menu1.Add_Click({
 
             if ($null -ne $hostname -and $hostname -ne "") {
                 try {
+                    $snaptime= Get-Snapshot -VM $hostname | select-object -expand created
+                    # 🧠 Kontrola pomocí Get-VIEvent
+                        $excludedUsers = @("SAZKA\nmmbackupuser", "SYSTEM")
+                        $deleteevent = Get-VIEvent -Entity $hostname -Start $snaptime | Where-Object {$_.FullFormattedMessage -imatch 'Task: Remove snapshot' -and ($excludedUsers -notcontains $_.UserName)}
+                        
+
+                        if ($null -ne $deleteevent) {
+                            $progres_form.Invoke([Action]{ $label.Text = "snapshot již někdo maže" })
+                            $summary += "⚠️ Snapshot '$delname' na '$hostname' se již maže. Přeskočeno."
+                            $script:allowClose = $true
+                            $progres_form.Close()
+                            continue
+                        }
+                    
                     $task = Get-Snapshot -VM $hostname | Where-Object { $_.Name -like $delname } | Remove-Snapshot -Confirm:$false -RunAsync
 
                     do {
@@ -252,7 +266,7 @@ $button4menu1.Add_Click({
                             $progressBar.Value = $percent
                             $label.Text = "Mazání snapshotu: $percent%"
                         })
-
+                        [System.Windows.Forms.Application]::DoEvents()  # 👈 Tady zpracuje GUI události
                         Start-Sleep -Seconds 1
                     } while ($taskInfo.State -eq "Running")
 
