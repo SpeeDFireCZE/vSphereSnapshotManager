@@ -7,7 +7,7 @@ $Icon = Join-Path $env:TEMP "tempicon.ico"
 [IO.File]::WriteAllBytes($Icon, [Convert]::FromBase64String($iconBase64))
 
 #--------------------------------------Sdílené proměnné-----------------------------------------------#
-    $server= "*****"
+    $server= "praha-vc.sazka.cz"
 #---------------------------------kontrola dostupnosti--------------------------------------#
 $vcaccess = ping $server -n 1
 if($vcaccess -match "Received = 1"){
@@ -110,14 +110,34 @@ Disconnect-VIServer -Confirm:$False -Force
 #                                                                             Default menu/menu1                                                                               #
 #==============================================================================================================================================================================#
 #==============================================================================================================================================================================#
-
 #=========================================================================Funkce na $infotextBoxmenu1 ========================================================#
+
 function get-textinfo{
     $infotextBoxmenu1.Items.Clear()
     $infotextBoxmenu1.Text=""
+
 if($Buttonlogin.Text -ne "VM login"){
     $empty= get-vm | get-snapshot | select-object -expand name
+    $pocetsnapshotu = $empty.Count
+
+    $Labelmenu = New-Object System.Windows.Forms.Label
+    $Labelmenu.Location = New-Object System.Drawing.Point(322,1)
+    $Labelmenu.Text = "Vyhledávají se snapshoty:"
+    $Labelmenu.AutoSize = $true
+    $main_form.Controls.Add($Labelmenu)
+    $Labelmenu.Visible = $true
+
+    $progressBarmenu1 = New-Object System.Windows.Forms.ProgressBar
+    $progressBarmenu1.size = New-Object System.Drawing.Size(160,13)
+    $progressBarmenu1.Location = New-Object System.Drawing.Size(310,20)
+    $progressBarmenu1.Minimum = 0
+    $progressBarmenu1.Maximum = $pocetsnapshotu
+    $progressBarmenu1.Value = 0
+    $main_form.Controls.Add($progressBarmenu1)
+
     if ($null -ne $empty){
+    $i=0
+
     foreach ($line in (Get-View -ViewType VirtualMachine -Property Name,Snapshot -Filter @{Snapshot = ''} | select-object -expand Name)){
         $snapshot = Get-Snapshot -VM $line
         $snaptime= Get-Snapshot -VM $line | select-object -expand created
@@ -132,6 +152,8 @@ if($Buttonlogin.Text -ne "VM login"){
         foreach ($snapname in $snapshot){
         if($null -ne $snapshot){    
         $infotextBoxmenu1.Items.Add( "'VM: "+ "||$line||" + " Snapshot: '" + "||$snapname||" + "' created on: " + $snapname.Created.DateTime + " by " + $vysledek[0] + "`r`n")
+        $i++
+        $progressBarmenu1.Value = $i
         }
         
         else {
@@ -142,9 +164,11 @@ if($Buttonlogin.Text -ne "VM login"){
     else{
         (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Snapshoty nejsou",0,"Chyba",64)
     }
+    $Labelmenu.Visible = $false
+    $progressBarmenu1.Visible = $false
     }
     else{
-        (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován AD login",0,"Chyba",64)
+        (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován login",0,"Chyba",64)
     }
 
 
@@ -305,13 +329,18 @@ $button4menu1.Add_Click({
             [System.Windows.Forms.MessageBoxDefaultButton]::Button1, 
             [System.Windows.Forms.MessageBoxOptions]::ServiceNotification)
 
+        $main_form.TopMost = $true
+        $main_form.BringToFront()
+        $main_form.Focus()
+        $main_form.TopMost = $false
+
         get-textinfo  # Refresh seznamu
 
     } else {
-        (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Vyber alespoň jeden snapshot.","Chyba",0,48)
+        (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Vyber alespoň jeden snapshot.","Chyba",64)
     }
 } else {
-    (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován AD login.","Chyba",0,48)
+    (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován login",0,"Chyba",64)
 }
 
 
@@ -320,6 +349,256 @@ $button4menu1.Add_Click({
 
 
 )
+
+#==============================================================================================================================================================================#
+#==============================================================================================================================================================================#
+#                                                                             Default menu/menu2                                                                               #
+#==============================================================================================================================================================================#
+#==============================================================================================================================================================================#
+
+#-------------------------------------získání-serverů-----------------------------------#
+
+$buttonmenu2 = New-Object System.Windows.Forms.Button
+$buttonmenu2.BackColor =”LightGray”
+$buttonmenu2.ForeColor = “black”
+$buttonmenu2.Location = New-Object System.Drawing.Size(310,55)
+
+$buttonmenu2.Size = New-Object System.Drawing.Size(160,23)
+
+$buttonmenu2.Text = "Získání seznamu serverů"
+$buttonmenu2.Cursor="Hand"
+$main_form.Controls.Add($buttonmenu2)
+
+$buttonmenu2.Add_Click(
+
+{
+if($Buttonlogin.Text -ne "VM login"){
+    $vmka= get-vm | select-object -expand name
+    Foreach ($vm in $vmka)
+        {
+
+            $ComboBoxmenu2.Items.Add($vm);
+
+        }
+    }
+  else {
+    (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován login",0,"Chyba",64)
+}    
+}
+
+)
+
+#-------------------------------------výpis-serverů-----------------------------------#
+$Labelmenu2 = New-Object System.Windows.Forms.Label
+
+$Labelmenu2.Text = "Server:"
+
+$Labelmenu2.Location = New-Object System.Drawing.Point(200,82)
+
+$Labelmenu2.AutoSize = $true
+
+$main_form.Controls.Add($Labelmenu2)
+
+$ComboBoxmenu2 = New-Object System.Windows.Forms.ComboBox
+
+$ComboBoxmenu2.Width = 300
+
+Foreach ($vm in $vmka)
+{
+
+$ComboBoxmenu2.Items.Add($vm);
+
+}
+
+$ComboBoxmenu2.Location  = New-Object System.Drawing.Point(240,80)
+$ComboBoxmenu2.AutoCompleteSource = 'ListItems'
+$ComboBoxmenu2.AutoCompleteMode = 'Append'
+
+$main_form.Controls.Add($ComboBoxmenu2)
+
+#-------------------------------------poznámka-----------------------------------#
+$Label2menu2 = New-Object System.Windows.Forms.Label
+
+$Label2menu2.Text = "Poznámka:"
+
+$Label2menu2.Location  = New-Object System.Drawing.Point(179,107)
+
+$Label2menu2.AutoSize = $true
+
+$main_form.Controls.Add($Label2menu2)
+
+$poznamkamenu2 = New-Object System.Windows.Forms.Textbox
+$poznamkamenu2.Location = New-Object System.Drawing.Point(240,105)
+$poznamkamenu2.Size = New-Object System.Drawing.Size(300,20)
+$main_form.Controls.Add($poznamkamenu2)
+
+
+#-------------------------------------název-----------------------------------#
+$Label3menu2 = New-Object System.Windows.Forms.Label
+
+$Label3menu2.Text = "Název:"
+
+$Label3menu2.Location  = New-Object System.Drawing.Point(200,132)
+
+$Label3menu2.AutoSize = $true
+
+$main_form.Controls.Add($Label3menu2)
+
+$nazevamenu2 = New-Object System.Windows.Forms.Textbox
+$nazevamenu2.Location = New-Object System.Drawing.Point(240,130)
+$nazevamenu2.Size = New-Object System.Drawing.Size(300,20)
+$main_form.Controls.Add($nazevamenu2)
+
+#-------------------------------------vytvoření snapshotu-----------------------------------#
+
+# Tlačítko na vytvoření snapshotu
+$button1menu2 = New-Object System.Windows.Forms.Button
+$button1menu2.BackColor = "LightGray"
+$button1menu2.ForeColor = "black"
+$button1menu2.Location  = New-Object System.Drawing.Size(310,157)
+$button1menu2.Size      = New-Object System.Drawing.Size(160,23)
+$button1menu2.Text      = "vytvořit snapshot"
+$button1menu2.Cursor    = "Hand"
+$main_form.Controls.Add($button1menu2)
+
+$button1menu2.Add_Click({
+    if ($Buttonlogin.Text -ne "VM login") {
+        $vmName   = $ComboBoxmenu2.SelectedItem
+        $snapName = $nazevamenu2.Text
+        $desc     = $poznamkamenu2.Text
+
+        if ([string]::IsNullOrWhiteSpace($vmName) -or [string]::IsNullOrWhiteSpace($snapName)) {
+            (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Zadej VM i jméno snapshotu.",0,"Chyba",64)
+            return
+        }
+
+        # --- Progres okno ---
+        $progres_form = New-Object System.Windows.Forms.Form
+        $progres_form.Text = "Vytváření snapshotu"
+        $progres_form.Size = New-Object System.Drawing.Size(400,150)
+        $progres_form.StartPosition = "CenterScreen"
+        $progres_form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($Icon)
+        $progres_form.FormBorderStyle = 'FixedDialog'
+        $progres_form.ControlBox = $false
+
+        $label = New-Object System.Windows.Forms.Label
+        $label.Text = "Probíhá vytváření snapshotu..."
+        $label.AutoSize = $true
+        $label.Location = New-Object System.Drawing.Point(20,20)
+        $progres_form.Controls.Add($label)
+
+        $progressBar = New-Object System.Windows.Forms.ProgressBar
+        $progressBar.Location = New-Object System.Drawing.Point(20,50)
+        $progressBar.Size = New-Object System.Drawing.Size(340,20)
+        $progressBar.Minimum = 0
+        $progressBar.Maximum = 100
+        $progres_form.Controls.Add($progressBar)
+
+        $progres_form.Show()
+
+        try {
+            # Spuštění snapshotu na pozadí
+            $task = New-Snapshot -VM $vmName -Name $snapName -Description $desc -Confirm:$false -RunAsync
+
+            do {
+                $taskInfo = Get-Task | Where-Object { $_.Id -eq $task.Id }
+                $percent = if ($taskInfo.PercentComplete -ne $null) { $taskInfo.PercentComplete } else { 0 }
+
+                $progres_form.Invoke([Action]{
+                    $progressBar.Value = $percent
+                    $label.Text = "Vytváření snapshotu: $percent%"
+                })
+                [System.Windows.Forms.Application]::DoEvents()
+                Start-Sleep -Seconds 1
+            } while ($taskInfo.State -eq "Running")
+
+            $progres_form.Invoke([Action]{ $progressBar.Value = 100 })
+
+            if ($taskInfo.State -eq "Success") {
+                $progres_form.Invoke([Action]{ $label.Text = "Vytvoření dokončeno." })
+                [System.Windows.Forms.MessageBox]::Show("✅ Snapshot '$snapName' pro VM '$vmName' byl vytvořen.",
+                    "Výsledek", 'OK', 'Information')
+            } else {
+                $progres_form.Invoke([Action]{ $label.Text = "Chyba: $($taskInfo.Error.Message)" })
+                [System.Windows.Forms.MessageBox]::Show("❌ Chyba při vytváření snapshotu '$snapName' na VM '$vmName': $($taskInfo.Error.Message)",
+                    "Chyba", 'OK', 'Error')
+            }
+
+        } catch {
+            $progres_form.Invoke([Action]{ $label.Text = "Chyba: $_" })
+            [System.Windows.Forms.MessageBox]::Show("❌ Výjimka: $_","Chyba",'OK','Error')
+        }
+
+        $progres_form.Close()
+
+
+    } else {
+        (New-Object -ComObject Wscript.Shell -ErrorAction Stop).Popup("Pro tuto funkci je vyžadován login.",0,"Chyba",64)
+    }
+})
+
+
+
+#==============================================================================================================================================================================#
+#==============================================================================================================================================================================#
+#                                                                             checkbox menu                                                                                    #
+#==============================================================================================================================================================================#
+#==============================================================================================================================================================================#
+Get-Variable -Exclude *menu1*,*login* |  ForEach-Object{ ($_.Value).Visible = $false }
+
+#============================================================================checkbox menu1====================================================================================#
+
+$checkBoxfork1 = New-Object System.Windows.Forms.CheckBox
+$checkboxfork1.Location  = New-Object System.Drawing.Point(5,5)
+$checkBoxfork1.AutoSize=$true
+$checkBoxfork1.Cursor="Hand"
+$main_form.Controls.Add($checkBoxfork1)
+$checkBoxfork1.Checked = $true
+$checkBoxfork1.Enabled=$false
+$checkBoxfork1.Add_CheckStateChanged({
+    if($checkBoxfork1.CheckState -eq "Checked"){
+        $checkBoxfork2.Checked=$false
+        Get-Variable *menu1*,*login* |  ForEach-Object{ ($_.Value).Visible = $true }
+        $checkBoxfork1.Enabled=$false
+    }
+    else{
+        Get-Variable *menu1*,*login* |  ForEach-Object{ ($_.Value).Visible = $false }
+        $checkBoxfork1.Enabled=$true
+    }
+    })
+
+    $LabelcheckBoxfork1 = New-Object System.Windows.Forms.Label
+    $LabelcheckBoxfork1.Text="Mazání snapshotu"
+    $LabelcheckBoxfork1.Location  = New-Object System.Drawing.Point(29,5)
+    $LabelcheckBoxfork1.AutoSize = $true
+    $main_form.Controls.Add($LabelcheckBoxfork1)
+
+#============================================================================checkbox menu2====================================================================================#
+
+
+$checkBoxfork2 = New-Object System.Windows.Forms.CheckBox
+$checkboxfork2.Location  = New-Object System.Drawing.Point(5,20)
+$checkBoxfork2.AutoSize=$true
+$checkBoxfork2.Cursor="Hand"
+$main_form.Controls.Add($checkBoxfork2)
+$checkBoxfork2.Add_CheckStateChanged({
+    if($checkBoxfork2.CheckState -eq "Checked"){
+        $checkBoxfork1.Checked=$false
+        Get-Variable *menu2*,*login* |  ForEach-Object{ ($_.Value).Visible = $true }
+        $checkBoxfork2.Enabled=$false
+    }
+    else{
+        Get-Variable *menu2*,*login* |  ForEach-Object{ ($_.Value).Visible = $false }
+        $checkBoxfork2.Enabled=$true
+    }
+    })
+
+    $LabelcheckBoxfork2 = New-Object System.Windows.Forms.Label
+    $LabelcheckBoxfork2.Text="Vytvoření snapshotu"
+    $LabelcheckBoxfork2.Location  = New-Object System.Drawing.Point(29,20)
+    $LabelcheckBoxfork2.AutoSize = $true
+    $main_form.Controls.Add($LabelcheckBoxfork2)
+
     $main_form.Toplevel = $true
     $main_form.ShowDialog()
     
